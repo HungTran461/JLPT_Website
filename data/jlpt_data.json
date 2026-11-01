@@ -707,6 +707,326 @@
           ]
         }
       }
+    },
+    {
+      "id": "Goukaka Dekiru N4•5 ",
+      "name": "Đề luyện Goukaku Dekiru N4•5 thứ 1 N5",
+      "level": "N5",
+      "choukai_audio": "audio/Goukaku_Dekiru_N4.5_CD1_N5.mp3",
+      "sections": {
+        "moji_goi": {
+          "title": "文字・語彙 (もじーごい)",
+          "time_limit": 120,
+          "pdf_url": "exams/Goukaku_Dekiru_N4.5_Test1_Mojigoi.pdf",
+          "problems": [
+            {
+              "title": "問題 1",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 1, "correct": 0 },
+                { "id": 2, "page": 1, "correct": 3 },
+                { "id": 3, "page": 1, "correct": 1 },
+                { "id": 4, "page": 1, "correct": 2 },
+                { "id": 5, "page": 1, "correct": 1 },
+                { "id": 6, "page": 1, "correct": 0 },
+                { "id": 7, "page": 1, "correct": 3 },
+                { "id": 8, "page": 1, "correct": 3 },
+                { "id": 9, "page": 2, "correct": 2 },
+                { "id": 10, "page": 2, "correct": 3 },
+                { "id": 11, "page": 2, "correct": 1 },
+                { "id": 12, "page": 2, "correct": 1 },
+                { "id": 13, "page": 2, "correct": 0 },
+                { "id": 14, "page": 2, "correct": 2 },
+                { "id": 15, "page": 2, "correct": 3 },
+                { "id": 16, "page": 2, "correct": 1 },
+                { "id": 17, "page": 2, "correct": 1 },
+                { "id": 18, "page": 2, "correct": 3 },
+                { "id": 19, "page": 2, "correct": 3 },
+                { "id": 20, "page": 2, "correct": 1 }
+              ]
+            },
+            {
+              "title": "問題 2",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 3, "correct": 3 },
+                { "id": 2, "page": 3, "correct": 2 },
+                { "id": 3, "page": 3, "correct": 1 },
+                { "id": 4, "page": 3, "correct": 0 },
+                { "id": 5, "page": 3, "correct": 1 },
+                { "id": 6, "page": 3, "correct": 0 },
+                { "id": 7, "page": 3, "correct": 0 },
+                { "id": 8, "page": 3, "correct": 3 },
+                { "id": 9, "page": 4, "correct": 1 },
+                { "id": 10, "page": 4, "correct": 2 },
+                { "id": 11, "page": 4, "correct": 0 },
+                { "id": 12, "page": 4, "correct": 2 },
+                { "id": 13, "page": 4, "correct": 0 },
+                { "id": 14, "page": 4, "correct": 2 },
+                { "id": 15, "page": 4, "correct": 0 }
+              ]
+            },
+            {
+              "title": "問題 3",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 5, "correct": 0 },
+                { "id": 2, "page": 5, "correct": 0 },
+                { "id": 3, "page": 5, "correct": 1 },
+                { "id": 4, "page": 5, "correct": 1 },
+                { "id": 5, "page": 5, "correct": 2 },
+                { "id": 6, "page": 5, "correct": 3 },
+                { "id": 7, "page": 5, "correct": 0 },
+                { "id": 8, "page": 5, "correct": 1 },
+                { "id": 9, "page": 6, "correct": 1 },
+                { "id": 10, "page": 6, "correct": 3 },
+                { "id": 11, "page": 6, "correct": 2 },
+                { "id": 12, "page": 6, "correct": 3 },
+                { "id": 13, "page": 6, "correct": 0 },
+                { "id": 14, "page": 6, "correct": 0 },
+                { "id": 15, "page": 6, "correct": 2 },
+                { "id": 16, "page": 6, "correct": 2 },
+                { "id": 17, "page": 6, "correct": 0 },
+                { "id": 18, "page": 6, "correct": 3 }
+              ]
+            },
+            {
+              "title": "問題 4",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 7, "correct": 2 },
+                { "id": 2, "page": 7, "correct": 3 },
+                { "id": 3, "page": 7, "correct": 0 },
+                { "id": 4, "page": 7, "correct": 0 },
+                { "id": 5, "page": 8, "correct": 2 },
+                { "id": 6, "page": 8, "correct": 1 },
+                { "id": 7, "page": 8, "correct": 0 },
+                { "id": 8, "page": 8, "correct": 2 },
+                { "id": 9, "page": 8, "correct": 1 },
+                { "id": 10, "page": 8, "correct": 0 }
+              ]
+            }
+          ]
+        },
+        "bunpou": {
+          "title": "文法・読解 (ぶんぼうーどっかい)",
+          "time_limit": 120,
+          "pdf_url": "exams/Goukaku_Dekiru_N4.5_Test1_Bunbou.pdf",
+          "problems": [
+            {
+              "title": "問題 1",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 1, "correct": 2 },
+                { "id": 2, "page": 1, "correct": 0 },
+                { "id": 3, "page": 1, "correct": 1 },
+                { "id": 4, "page": 1, "correct": 2 },
+                { "id": 5, "page": 1, "correct": 1 },
+                { "id": 6, "page": 1, "correct": 0 },
+                { "id": 7, "page": 2, "correct": 2 },
+                { "id": 8, "page": 2, "correct": 1 },
+                { "id": 9, "page": 2, "correct": 0 },
+                { "id": 10, "page": 2, "correct": 1 },
+                { "id": 11, "page": 2, "correct": 0 },
+                { "id": 12, "page": 2, "correct": 3 },
+                { "id": 13, "page": 2, "correct": 2 },
+                { "id": 14, "page": 2, "correct": 3 },
+                { "id": 15, "page": 2, "correct": 3 },
+                { "id": 16, "page": 2, "correct": 1 },
+                { "id": 17, "page": 3, "correct": 2 },
+                { "id": 18, "page": 3, "correct": 0 },
+                { "id": 19, "page": 3, "correct": 2 },
+                { "id": 20, "page": 3, "correct": 2 },
+                { "id": 21, "page": 3, "correct": 3 },
+                { "id": 22, "page": 3, "correct": 3 },
+                { "id": 23, "page": 3, "correct": 1 },
+                { "id": 24, "page": 3, "correct": 2 },
+                { "id": 25, "page": 3, "correct": 2 },
+                { "id": 26, "page": 4, "correct": 3 },
+                { "id": 27, "page": 4, "correct": 2 },
+                { "id": 28, "page": 4, "correct": 3 },
+                { "id": 29, "page": 4, "correct": 1 },
+                { "id": 30, "page": 4, "correct": 2 },
+                { "id": 31, "page": 4, "correct": 1 },
+                { "id": 32, "page": 4, "correct": 1 },
+                { "id": 33, "page": 4, "correct": 2 },
+                { "id": 34, "page": 4, "correct": 2 }
+              ]
+            },
+            {
+              "title": "問題 2",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 5, "correct": 3 },
+                { "id": 2, "page": 5, "correct": 3 },
+                { "id": 3, "page": 5, "correct": 2 },
+                { "id": 4, "page": 6, "correct": 2 },
+                { "id": 5, "page": 6, "correct": 1 },
+                { "id": 6, "page": 6, "correct": 1 },
+                { "id": 7, "page": 6, "correct": 2 },
+                { "id": 8, "page": 6, "correct": 0 },
+                { "id": 9, "page": 6, "correct": 3 },
+                { "id": 10, "page": 6, "correct": 0 },
+                { "id": 11, "page": 6, "correct": 2 },
+                { "id": 12, "page": 6, "correct": 1 }
+              ]
+            },
+            {
+              "title": "問題 3 - 1ばん",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 8, "correct": 1 },
+                { "id": 2, "page": 8, "correct": 0 },
+                { "id": 3, "page": 8, "correct": 2 },
+                { "id": 4, "page": 8, "correct": 2 },
+                { "id": 5, "page": 8, "correct": 0 }
+              ]
+            },
+            {
+              "title": "問題 3 - 2ばん",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 9, "correct": 0 },
+                { "id": 2, "page": 9, "correct": 1 },
+                { "id": 3, "page": 9, "correct": 1 },
+                { "id": 4, "page": 9, "correct": 3 },
+                { "id": 5, "page": 9, "correct": 2 }
+              ]
+            },
+            {
+              "title": "問題 3 - 3ばん",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 10, "correct": 2 },
+                { "id": 2, "page": 10, "correct": 0 },
+                { "id": 3, "page": 10, "correct": 1 },
+                { "id": 4, "page": 10, "correct": 1 },
+                { "id": 5, "page": 10, "correct": 1 }
+              ]
+            },
+            {
+              "title": "問題 4",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 11, "correct": 2 },
+                { "id": 2, "page": 12, "correct": 1 },
+                { "id": 3, "page": 12, "correct": 3 },
+                { "id": 4, "page": 13, "correct": 3 }
+              ]
+            },
+            {
+              "title": "問題 5",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 15, "correct": 2 },
+                { "id": 2, "page": 16, "correct": 1 },
+                { "id": 3.1, "page": 17, "correct": 0 },
+                { "id": 3.2, "page": 17, "correct": 1 },
+                { "id": 4.1, "page": 18, "correct": 3 },
+                { "id": 4.2, "page": 18, "correct": 3 },
+                { "id": 4.3, "page": 18, "correct": 0 }
+              ]
+            },
+            {
+              "title": "問題 6",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 21, "correct": 1 },
+                { "id": 2, "page": 23, "correct": 3 },
+                { "id": 3, "page": 25, "correct": 0 }
+              ]
+            }
+          ]
+        },
+        "choukai": {
+          "title": "聴解 (Nghe hiểu)",
+          "time_limit": 30,
+          "pdf_url": "exams/Goukaku_Dekiru_N4.5_Test1_Choukai.pdf",
+          "problems": [
+            {
+              "title": "問題 1",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 2, "correct": 1 },
+                { "id": 2, "page": 2, "correct": 3 },
+                { "id": 3, "page": 3, "correct": 0 },
+                { "id": 4, "page": 3, "correct": 2 },
+                { "id": 5, "page": 4, "correct": 3 },
+                { "id": 6, "page": 4, "correct": 1 },
+                { "id": 7, "page": 5, "correct": 3 },
+                { "id": 8, "page": 5, "correct": 0 }
+              ]
+            },
+            {
+              "title": "問題 2",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 7, "correct": 3 },
+                { "id": 2, "page": 8, "correct": 3 },
+                { "id": 3, "page": 8, "correct": 0 },
+                { "id": 4, "page": 9, "correct": 3 },
+                { "id": 5, "page": 9, "correct": 2 },
+                { "id": 6, "page": 10, "correct": 1 },
+                { "id": 7, "page": 10, "correct": 2 }
+              ]
+            },
+            {
+              "title": "問題 3",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 11, "correct": 0 },
+                { "id": 2, "page": 12, "correct": 2 },
+                { "id": 3, "page": 12, "correct": 0 },
+                { "id": 4, "page": 13, "correct": 2 },
+                { "id": 5, "page": 13, "correct": 0 },
+                { "id": 6, "page": 14, "correct": 0 },
+                { "id": 7, "page": 14, "correct": 0 }
+              ]
+            },
+            {
+              "title": "問題 4",
+              "options_count": 4,
+              "questions": [
+                { "id": 1, "page": 15, "correct": 1 },
+                { "id": 2, "page": 15, "correct": 0 },
+                { "id": 3, "page": 15, "correct": 0 },
+                { "id": 4, "page": 15, "correct": 2 },
+                { "id": 5, "page": 15, "correct": 1 },
+                { "id": 6, "page": 15, "correct": 0 }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "Goukaka Dekiru N4•5 ",
+      "name": "Đề luyện Goukaku Dekiru N4•5 thứ 2 N5",
+      "level": "N5",
+      "choukai_audio": "audio/Goukaku_Dekiru_N4.5_CD2_N5.mp3",
+      "sections": {
+        "moji_goi": {
+          "title": "文字・語彙 (もじーごい)",
+          "time_limit": 60,
+          "pdf_url": "exams/Goukaku_Dekiru_N4.5_Test2_Mojigoi.pdf",
+          "problems": [
+          ]
+        },
+        "bunpou": {
+          "title": "文法・読解 (ぶんぼうーどっかい)",
+          "time_limit": 80,
+          "pdf_url": "exams/Goukaku_Dekiru_N4.5_Test2_Bunbou.pdf",
+          "problems": [
+          ]
+        },
+        "choukai": {
+          "title": "聴解 (Nghe hiểu)",
+          "time_limit": 30,
+          "pdf_url": "exams/Goukaku_Dekiru_N4.5_Test2_Choukai.pdf",
+          "problems": [
+          ]
+        }
+      }
     }
   ]
 }
