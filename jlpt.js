@@ -5,6 +5,7 @@ let currentExam = null;
 
 const SECTION_KEYS = ['moji_goi', 'bunpou', 'choukai'];
 let currentSectionIndex = 0; 
+let isPracticeMode = false; // Mặc định là chế độ Thi thử, có thể thay đổi dựa trên toggle trên trang chủ
 
 let pdfCache = {}; 
 let masterPdfDoc = null;
@@ -17,6 +18,7 @@ let sectionTimeRemaining = 0;
 
 let currentSession = {
     answers: { moji_goi: {}, bunpou: {}, choukai: {} },
+    flagged: { moji_goi: {}, bunpou: {}, choukai: {} },
     graded: { moji_goi: false, bunpou: false, choukai: false },
     scores: { moji_goi: null, bunpou: null, choukai: null }
 };
@@ -102,14 +104,19 @@ function renderHomeExamsGrid() {
     });
 }
 
-// MỞ KHÔNG GIAN LÀM BÀI -> TỰ ĐỘNG RESET SESSION MỚI TINH
 async function openExamWorkspace(examId) {
     currentExam = appData.exams.find(e => e.id === examId);
     if (!currentExam) return;
 
-    // Tự động Reset sạch dữ liệu lượt thi cũ mỗi lần bấm "Bắt đầu làm bài"
+    // Đọc trạng thái chế độ từ toggle trên trang chủ
+    const togglePractice = document.getElementById('toggle-practice-mode');
+    if (togglePractice) {
+        isPracticeMode = togglePractice.checked;
+    }
+
     currentSession = {
         answers: { moji_goi: {}, bunpou: {}, choukai: {} },
+        flagged: { moji_goi: {}, bunpou: {}, choukai: {} },
         graded: { moji_goi: false, bunpou: false, choukai: false },
         scores: { moji_goi: null, bunpou: null, choukai: null }
     };
@@ -118,8 +125,23 @@ async function openExamWorkspace(examId) {
     document.getElementById('active-exam-title').textContent = `${currentExam.name} (${currentExam.level})`;
     document.getElementById('sheet-exam-title').textContent = currentExam.id;
 
+    // Cập nhật Badge hiển thị Chế độ trong phòng thi
+    const modeBadge = document.getElementById('active-mode-badge');
+    if (modeBadge) {
+        if (isPracticeMode) {
+            modeBadge.className = "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30";
+            modeBadge.textContent = "Chế độ Luyện tập";
+        } else {
+            modeBadge.className = "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30";
+            modeBadge.textContent = "Chế độ Thi thử";
+        }
+    }
+
     if (currentExam.choukai_audio) {
         audioPlayer.src = currentExam.choukai_audio;
+        audioPlayer.playbackRate = 1.0;
+        const speedSelect = document.getElementById('select-audio-speed');
+        if (speedSelect) speedSelect.value = "1.0";
     } else {
         audioPlayer.removeAttribute('src');
     }
@@ -136,14 +158,20 @@ function loadCurrentSection() {
     const currentKey = SECTION_KEYS[currentSectionIndex];
 
     updateSectionIndicators();
+
+    // 1. CHỈ NẠP PDF 1 LẦN KHI BẮT ĐẦU/CHUYỂN PHẦN THI NÀY
+    const sectionData = currentExam.sections[currentKey];
+    if (sectionData && sectionData.pdf_url) {
+        loadPDF(sectionData.pdf_url);
+    }
+
     renderOMRSheet();
 
     if (!currentSession.graded[currentKey]) {
-        const secData = currentExam.sections[currentKey];
-        const minutes = (secData && secData.time_limit) ? secData.time_limit : 20;
+        const minutes = (sectionData && sectionData.time_limit) ? sectionData.time_limit : 20;
         startSectionTimer(minutes * 60);
     } else {
-        document.getElementById('section-timer-display').textContent = "ĐÃ NỘP BÀI";
+        document.getElementById('section-timer-display').textContent = "ĐÃ HOÀN THÀNH";
     }
 }
 
@@ -173,7 +201,7 @@ function startSectionTimer(seconds) {
 
         if (sectionTimeRemaining <= 0) {
             stopSectionTimer();
-            alert("⏰ Đã hết thời gian làm bài phần này! Hệ thống tự động nộp bài.");
+            alert("⏰ Đã hết thời gian làm bài phần này!");
             gradeCurrentSection();
         }
     }, 1000);
@@ -188,7 +216,7 @@ function stopSectionTimer() {
 
 function updateTimerDisplay() {
     const mins = Math.floor(sectionTimeRemaining / 60);
-    const secs = sectionTimeRemaining % 60;
+    const secs = Math.floor(sectionTimeRemaining % 60);
     document.getElementById('section-timer-display').textContent = 
         `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
@@ -252,12 +280,12 @@ function renderOMRSheet() {
 
     if (!sectionData || !sectionData.problems) {
         container.innerHTML = '<p class="text-xs text-slate-500 italic">Không có dữ liệu cho phần thi này.</p>';
+        updateActionButtonUI();
+        updateOMRStatsUI();
         return;
     }
 
-    if (sectionData.pdf_url) {
-        loadPDF(sectionData.pdf_url);
-    }
+    // ❌ ĐÃ XÓA DÒNG loadPDF(sectionData.pdf_url) Ở ĐÂY ĐỂ KHÔNG BỊ KHỞI TẠO LẠI CANVAS KHI KHOANH ĐÁP ÁN
 
     const audioBox = document.getElementById('choukai-audio-box');
     if (currentKey === 'choukai') audioBox.classList.remove('hidden');
@@ -280,6 +308,7 @@ function renderOMRSheet() {
             const row = document.createElement('div');
             row.className = 'omr-row';
 
+            // 1. Số thứ tự câu hỏi (Click vào số câu mới render lại đúng trang PDF đó)
             const qNum = document.createElement('span');
             qNum.className = 'omr-qnum';
             qNum.textContent = `${q.id}`;
@@ -287,6 +316,19 @@ function renderOMRSheet() {
             qNum.addEventListener('click', () => renderPDFPage(q.page));
             row.appendChild(qNum);
 
+            // 2. Nút Đánh dấu (Flag/Bookmark)
+            const isFlagged = !!(currentSession.flagged[currentKey] && currentSession.flagged[currentKey][qKey]);
+            const flagBtn = document.createElement('button');
+            flagBtn.className = `omr-flag-btn ${isFlagged ? 'flagged' : ''}`;
+            flagBtn.innerHTML = `<i class="fa-${isFlagged ? 'solid' : 'regular'} fa-bookmark"></i>`;
+            flagBtn.title = isFlagged ? "Đã đánh dấu câu này" : "Đánh dấu câu phân vân";
+            flagBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleFlagQuestion(currentKey, qKey);
+            });
+            row.appendChild(flagBtn);
+
+            // 3. Khung chứa các ô tròn OMR
             const bubblesDiv = document.createElement('div');
             bubblesDiv.className = 'omr-bubbles';
 
@@ -306,8 +348,20 @@ function renderOMRSheet() {
                     } else if (i === userPick && userPick !== q.correct) {
                         bubble.classList.add('incorrect');
                     }
-                } else if (userPick === i) {
-                    bubble.classList.add('selected');
+                } else if (userPick !== undefined && userPick !== null) {
+                    if (isPracticeMode) {
+                        bubble.disabled = true;
+                        if (i === q.correct) {
+                            bubble.classList.add('correct');
+                        }
+                        if (i === userPick && userPick !== q.correct) {
+                            bubble.classList.add('incorrect');
+                        }
+                    } else {
+                        if (i === userPick) {
+                            bubble.classList.add('selected');
+                        }
+                    }
                 }
 
                 bubble.addEventListener('click', () => {
@@ -325,25 +379,99 @@ function renderOMRSheet() {
     });
 
     updateActionButtonUI();
+    updateOMRStatsUI();
+}
+
+function toggleFlagQuestion(sectionKey, qKey) {
+    if (!currentSession.flagged[sectionKey]) {
+        currentSession.flagged[sectionKey] = {};
+    }
+    currentSession.flagged[sectionKey][qKey] = !currentSession.flagged[sectionKey][qKey];
+    saveSessionToStorage(currentExam.id);
+    renderOMRSheet();
+}
+
+function clearAllFlagsForCurrentSection(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const currentKey = SECTION_KEYS[currentSectionIndex];
+    if (currentSession && currentSession.flagged) {
+        currentSession.flagged[currentKey] = {};
+        if (currentExam && currentExam.id) {
+            saveSessionToStorage(currentExam.id);
+        }
+        renderOMRSheet();
+    }
 }
 
 function selectAnswer(qKey, optionIdx, count, sectionKey, probIdx, qId) {
+    // 1. Đã nộp bài phần này thì không cho chọn
     if (currentSession.graded[sectionKey]) return;
+
+    // 2. Ở Chế độ Luyện tập, nếu câu này đã chọn đáp án rồi thì không cho chọn lại
+    if (isPracticeMode && currentSession.answers[sectionKey][qKey] !== undefined) {
+        return;
+    }
 
     currentSession.answers[sectionKey][qKey] = optionIdx;
     saveSessionToStorage(currentExam.id);
 
-    for (let i = 0; i < count; i++) {
-        const b = document.querySelector(`.bubble-${sectionKey}-${probIdx}-${qId}-${i}`);
-        if (b) b.classList.remove('selected');
-    }
+    renderOMRSheet();
+}
 
-    const selectedBubble = document.querySelector(`.bubble-${sectionKey}-${probIdx}-${qId}-${optionIdx}`);
-    if (selectedBubble) selectedBubble.classList.add('selected');
+function getSectionStats(sectionKey) {
+    const sectionData = currentExam ? currentExam.sections[sectionKey] : null;
+    if (!sectionData || !sectionData.problems) return { total: 0, answered: 0, flagged: 0 };
+
+    let total = 0;
+    let answered = 0;
+    let flagged = 0;
+
+    const answers = currentSession.answers[sectionKey] || {};
+    const flags = currentSession.flagged[sectionKey] || {};
+
+    sectionData.problems.forEach((prob, probIdx) => {
+        prob.questions.forEach(q => {
+            total++;
+            const qKey = `${sectionKey}_${probIdx}_${q.id}`;
+            if (answers[qKey] !== undefined && answers[qKey] !== null) {
+                answered++;
+            }
+            if (flags[qKey] === true) {
+                flagged++;
+            }
+        });
+    });
+
+    return { total, answered, flagged };
+}
+
+function updateOMRStatsUI() {
+    const currentKey = SECTION_KEYS[currentSectionIndex];
+    const stats = getSectionStats(currentKey);
+
+    const answeredEl = document.getElementById('stat-answered-count');
+    const flaggedEl = document.getElementById('stat-flagged-count');
+    const clearFlagsBtn = document.getElementById('btn-clear-flags');
+
+    if (answeredEl) answeredEl.textContent = `${stats.answered}/${stats.total}`;
+    if (flaggedEl) flaggedEl.textContent = `${stats.flagged}`;
+
+    if (clearFlagsBtn) {
+        if (stats.flagged > 0 && !currentSession.graded[currentKey]) {
+            clearFlagsBtn.classList.remove('hidden');
+        } else {
+            clearFlagsBtn.classList.add('hidden');
+        }
+    }
 }
 
 function gradeCurrentSection() {
     stopSectionTimer();
+    stopChoukaiAudio();
     const currentKey = SECTION_KEYS[currentSectionIndex];
     const sectionData = currentExam.sections[currentKey];
 
@@ -376,9 +504,10 @@ function gradeCurrentSection() {
     saveSessionToStorage(currentExam.id);
     renderOMRSheet();
 
-    // Khi nộp phần cuối cùng (Choukai) -> Tự động ghi vào lịch sử
     const allGraded = SECTION_KEYS.every(k => currentSession.graded[k] === true);
-    if (allGraded) {
+    
+    // CHỈ LƯU LỊCH SỬ KHI LÀ CHẾ ĐỘ THI THỬ (isPracticeMode === false)
+    if (allGraded && !isPracticeMode) {
         saveSessionToHistory();
     }
 }
@@ -420,55 +549,165 @@ function updateActionButtonUI() {
     }
 }
 
-// XEM TỔNG ĐIỂM VÀ CÓ NÚT "HOÀN THÀNH & TRỞ VỀ MÀN HÌNH CHÍNH"
+function calculateJLPTScore(scores) {
+    const sectionsConfig = [
+        { key: 'moji_goi', label: '1. Chữ Hán - Từ vựng (Moji-Goi)', maxPts: 60, cutoff: 19 },
+        { key: 'bunpou', label: '2. Ngữ pháp - Đọc hiểu (Bunpou)', maxPts: 60, cutoff: 19 },
+        { key: 'choukai', label: '3. Nghe hiểu (Choukai)', maxPts: 60, cutoff: 19 }
+    ];
+
+    let sectionResults = [];
+    let totalScore = 0;
+    let maxPossibleScore = 0;
+    let failReasons = [];
+    let activeSectionsCount = 0;
+
+    sectionsConfig.forEach(cfg => {
+        const s = scores[cfg.key] || { correct: 0, total: 0 };
+        const hasQuestions = s.total > 0;
+
+        if (hasQuestions) {
+            activeSectionsCount++;
+            const score = Math.round((s.correct / s.total) * cfg.maxPts);
+            const isPassed = score >= cfg.cutoff;
+
+            totalScore += score;
+            maxPossibleScore += cfg.maxPts;
+
+            if (!isPassed) {
+                failReasons.push(`Điểm ${cfg.label} (${score}/${cfg.maxPts}) bị liệt (Yêu cầu ≥ ${cfg.cutoff})`);
+            }
+
+            sectionResults.push({
+                key: cfg.key,
+                label: cfg.label,
+                correct: s.correct,
+                totalQuestions: s.total,
+                score: score,
+                maxPts: cfg.maxPts,
+                isPassed: isPassed,
+                hasData: true
+            });
+        }
+    });
+
+    const targetOverallScore = Math.round(maxPossibleScore * (80 / 180));
+    const passOverall = maxPossibleScore > 0 && totalScore >= targetOverallScore;
+    const allActiveSectionsPassed = sectionResults.every(r => r.isPassed);
+
+    const isPassed = activeSectionsCount > 0 && allActiveSectionsPassed && passOverall;
+
+    if (!passOverall && allActiveSectionsPassed && maxPossibleScore > 0) {
+        failReasons.push(`Tổng điểm (${totalScore}/${maxPossibleScore}) chưa đủ điểm sàn (Yêu cầu ≥ ${targetOverallScore})`);
+    }
+
+    return {
+        sectionResults,
+        totalScore,
+        maxPossibleScore,
+        isPassed,
+        failReasons
+    };
+}
+
 function showOverallScoreModal() {
     const modal = document.getElementById('overall-modal');
     const content = document.getElementById('overall-modal-content');
 
-    let totalCorrect = 0;
-    let totalQuestions = 0;
-    let breakdownHTML = '';
+    const jlptResult = calculateJLPTScore(currentSession.scores);
 
-    SECTION_KEYS.forEach(k => {
-        const s = currentSession.scores[k];
-        if (s) {
-            totalCorrect += s.correct;
-            totalQuestions += s.total;
-            const titleShort = k === 'moji_goi' ? 'Moji - Goi' : (k === 'bunpou' ? 'Bunpou' : 'Choukai');
-            breakdownHTML += `
-                <div class="flex justify-between items-center text-xs py-2 border-b border-slate-800">
-                    <span class="text-slate-400 font-bold">${titleShort}:</span>
-                    <span class="font-mono font-bold text-amber-400">${s.correct} / ${s.total} câu (${s.percent}%)</span>
+    let modalHTML = '';
+
+    if (isPracticeMode) {
+        // GIAO DIỆN KẾT QUẢ CHO CHẾ ĐỘ LUYỆN TẬP (KHÔNG CHẤM ĐIỂM & KHÔNG LƯU LỊCH SỬ)
+        let sectionsDetailHTML = jlptResult.sectionResults.map(sec => `
+            <div class="flex justify-between items-center p-2.5 bg-slate-800 rounded-lg">
+                <div>
+                    <p class="text-slate-200 font-bold">${sec.label}</p>
+                </div>
+                <span class="font-mono font-black text-amber-400">
+                    Đúng ${sec.correct} / ${sec.totalQuestions} câu
+                </span>
+            </div>
+        `).join('');
+
+        modalHTML = `
+            <div class="text-center pb-3 border-b border-slate-700">
+                <span class="text-3xl">🎉</span>
+                <h3 class="text-lg font-black text-amber-400 uppercase tracking-wider mt-1">HOÀN THÀNH LUYỆN TẬP</h3>
+                <p class="text-xs text-slate-400 mt-1">${currentExam.name}</p>
+                
+                <div class="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-xl text-xs text-amber-300 my-3">
+                    <i class="fa-solid fa-circle-info mr-1"></i> Chế độ Luyện tập: Kết quả này không chấm điểm thi JLPT chính thức và <strong>không lưu vào lịch sử làm bài</strong>.
+                </div>
+            </div>
+
+            <div class="space-y-2 text-xs pt-2">
+                <p class="text-[11px] text-slate-400 font-bold uppercase">Thống kê số câu đúng từng phần:</p>
+                ${sectionsDetailHTML}
+            </div>
+
+            <button id="btn-finish-and-go-home" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition mt-4 flex items-center justify-center gap-2 shadow-lg">
+                <i class="fa-solid fa-house"></i> TRỞ VỀ MÀN HÌNH CHÍNH
+            </button>
+        `;
+    } else {
+        // GIAO DIỆN CHẤM ĐIỂM CHÍNH THỨC CHO CHẾ ĐỘ THI THỬ
+        const passBadgeHTML = jlptResult.isPassed 
+            ? `<div class="result-badge-pass py-2 px-4 rounded-xl text-center font-black text-lg tracking-wide uppercase my-2">🎉 BẠN ĐÃ ĐẠT (合格)</div>`
+            : `<div class="result-badge-fail py-2 px-4 rounded-xl text-center font-black text-lg tracking-wide uppercase my-2">⚠️ CHƯA ĐẠT (不合格)</div>`;
+
+        let failNotesHTML = '';
+        if (!jlptResult.isPassed && jlptResult.failReasons.length > 0) {
+            failNotesHTML = `
+                <div class="bg-red-950/60 border border-red-500/40 p-2.5 rounded-xl text-[11px] text-red-300 space-y-1 mt-2">
+                    <p class="font-bold text-red-400">Lý do chưa đạt:</p>
+                    ${jlptResult.failReasons.map(r => `<p>• ${r}</p>`).join('')}
                 </div>
             `;
         }
-    });
 
-    const totalPercent = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+        let sectionsDetailHTML = jlptResult.sectionResults.map(sec => `
+            <div class="flex justify-between items-center p-2.5 bg-slate-800 rounded-lg">
+                <div>
+                    <p class="text-slate-200 font-bold">${sec.label}</p>
+                    <p class="text-[10px] text-slate-400">Đúng ${sec.correct}/${sec.totalQuestions} câu</p>
+                </div>
+                <span class="font-mono font-black ${sec.isPassed ? 'text-emerald-400' : 'text-red-400'}">
+                    ${sec.score} / ${sec.maxPts}
+                </span>
+            </div>
+        `).join('');
 
-    content.innerHTML = `
-        <div class="text-center pb-3 border-b border-slate-700">
-            <span class="text-3xl">🏆</span>
-            <h3 class="text-lg font-black text-amber-400 uppercase tracking-wider mt-1">TỔNG ĐIỂM BÀI THI JLPT</h3>
-            <p class="text-xs text-slate-400 mt-1">${currentExam.name}</p>
-            <p class="text-4xl font-black text-emerald-400 my-2">${totalCorrect} / ${totalQuestions}</p>
-            <p class="text-xs text-slate-300">Tỷ lệ chính xác toàn đề: <strong class="text-emerald-400">${totalPercent}%</strong></p>
-        </div>
-        <div class="space-y-1">
-            <p class="text-[11px] text-slate-400 font-bold uppercase">Chi tiết từng phần:</p>
-            ${breakdownHTML}
-        </div>
-        <button id="btn-finish-and-go-home" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition mt-4 flex items-center justify-center gap-2 shadow-lg">
-            <i class="fa-solid fa-house"></i> TRỞ VỀ MÀN HÌNH CHÍNH
-        </button>
-    `;
+        modalHTML = `
+            <div class="text-center pb-3 border-b border-slate-700">
+                <span class="text-3xl">🏆</span>
+                <h3 class="text-lg font-black text-amber-400 uppercase tracking-wider mt-1">KẾT QUẢ THI JLPT CHUẨN</h3>
+                <p class="text-xs text-slate-400 mt-1">${currentExam.name}</p>
+                
+                ${passBadgeHTML}
 
+                <p class="text-4xl font-black text-amber-400 my-1">${jlptResult.totalScore} <span class="text-base text-slate-400 font-normal">/ ${jlptResult.maxPossibleScore} điểm</span></p>
+                ${failNotesHTML}
+            </div>
+
+            <div class="space-y-2 text-xs pt-2">
+                <p class="text-[11px] text-slate-400 font-bold uppercase">Chi tiết theo từng phần thi:</p>
+                ${sectionsDetailHTML}
+            </div>
+
+            <button id="btn-finish-and-go-home" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition mt-4 flex items-center justify-center gap-2 shadow-lg">
+                <i class="fa-solid fa-house"></i> TRỞ VỀ MÀN HÌNH CHÍNH
+            </button>
+        `;
+    }
+
+    content.innerHTML = modalHTML;
     document.getElementById('btn-finish-and-go-home').addEventListener('click', closeSummaryAndReturnHome);
 
     modal.classList.remove('hidden');
 }
 
-// TỰ ĐỘNG CHUYỂN VỀ MÀN HÌNH CHÍNH SAU KHI XEM KẾT QUẢ
 function closeSummaryAndReturnHome() {
     document.getElementById('overall-modal').classList.add('hidden');
     backToHome();
@@ -482,27 +721,24 @@ function saveSessionToHistory() {
         history = [];
     }
 
-    let totalCorrect = 0;
-    let totalQuestions = 0;
-
-    Object.values(currentSession.scores).forEach(s => {
-        if (s) {
-            totalCorrect += s.correct;
-            totalQuestions += s.total;
-        }
-    });
-
-    if (totalQuestions === 0) return;
+    const jlptResult = calculateJLPTScore(currentSession.scores);
 
     const record = {
         id: Date.now(),
         examId: currentExam.id,
         examName: currentExam.name,
         date: new Date().toLocaleString('vi-VN'),
-        totalCorrect: totalCorrect,
-        totalQuestions: totalQuestions,
-        percent: Math.round((totalCorrect / totalQuestions) * 100),
-        scores: { ...currentSession.scores }
+        totalScore: jlptResult.totalScore,
+        maxPossibleScore: jlptResult.maxPossibleScore,
+        isPassed: jlptResult.isPassed,
+        sectionResults: jlptResult.sectionResults.map(sec => ({
+            key: sec.key,
+            label: sec.key === 'moji_goi' ? 'Moji' : (sec.key === 'bunpou' ? 'Bunpou' : 'Choukai'),
+            correct: sec.correct,
+            totalQuestions: sec.totalQuestions,
+            score: sec.score,
+            maxPts: sec.maxPts
+        }))
     };
 
     history.unshift(record);
@@ -523,22 +759,44 @@ function renderHistoryTable() {
     }
 
     if (history.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-500 italic py-4 text-center">Chưa có lịch sử làm bài nào được lưu.</p>';
+        container.innerHTML = '<p class="text-xs text-slate-500 italic py-4 text-center">Chưa có lịch sử làm bài nào (Chỉ lưu kết quả từ Chế độ Thi thử).</p>';
         return;
     }
 
-    let rowsHTML = history.map(item => `
-        <tr class="border-b border-slate-700/60 hover:bg-slate-700/30 text-xs transition">
-            <td class="py-3 px-3 text-slate-400 font-mono">${item.date}</td>
-            <td class="py-3 px-3 font-bold text-amber-300">${item.examName}</td>
-            <td class="py-3 px-3 font-mono font-bold text-emerald-400">${item.totalCorrect}/${item.totalQuestions} (${item.percent}%)</td>
-            <td class="py-3 px-3 text-slate-300">
-                ${item.scores.moji_goi ? `Moji: ${item.scores.moji_goi.correct}/${item.scores.moji_goi.total}` : '--'} |
-                ${item.scores.bunpou ? `Bunpou: ${item.scores.bunpou.correct}/${item.scores.bunpou.total}` : '--'} |
-                ${item.scores.choukai ? `Choukai: ${item.scores.choukai.correct}/${item.scores.choukai.total}` : '--'}
-            </td>
-        </tr>
-    `).join('');
+    let rowsHTML = history.map(item => {
+        const maxPts = item.maxPossibleScore || 180;
+        const totalPts = item.totalScore !== undefined ? item.totalScore : (item.jlptScore !== undefined ? item.jlptScore : 0);
+        const passText = item.isPassed ? 'Đạt/合格' : 'Chưa đạt/不合格';
+        const passClass = item.isPassed ? 'text-emerald-400' : 'text-red-400';
+
+        let detailStr = '';
+
+        if (item.sectionResults && Array.isArray(item.sectionResults) && item.sectionResults.length > 0) {
+            detailStr = item.sectionResults.map(sec => {
+                const countInfo = (sec.correct !== undefined && sec.totalQuestions !== undefined) 
+                    ? ` <span class="text-slate-400">(${sec.correct}/${sec.totalQuestions} câu)</span>` 
+                    : '';
+                return `${sec.label}: <strong class="text-amber-300">${sec.score}/${sec.maxPts}đ</strong>${countInfo}`;
+            }).join(' <span class="text-slate-600">|</span> ');
+        } else {
+            detailStr = '<span class="text-slate-500">Chưa nộp bài</span>';
+        }
+
+        return `
+            <tr class="border-b border-slate-700/60 hover:bg-slate-700/30 text-xs transition">
+                <td class="py-3 px-3 text-slate-400 font-mono">${item.date}</td>
+                <td class="py-3 px-3 font-bold text-amber-300">${item.examName}</td>
+                <td class="py-3 px-3 font-mono font-bold">
+                    <span class="${passClass}">
+                        ${totalPts}/${maxPts} (${passText})
+                    </span>
+                </td>
+                <td class="py-3 px-3 text-slate-300 font-mono">
+                    ${detailStr}
+                </td>
+            </tr>
+        `;
+    }).join('');
 
     container.innerHTML = `
         <table class="w-full text-left border-collapse">
@@ -546,8 +804,8 @@ function renderHistoryTable() {
                 <tr class="border-b border-slate-700 text-[11px] text-slate-400 uppercase font-bold">
                     <th class="py-2 px-3">Thời gian</th>
                     <th class="py-2 px-3">Tên Đề Thi</th>
-                    <th class="py-2 px-3">Tổng Điểm</th>
-                    <th class="py-2 px-3">Chi Tiết Các Phần</th>
+                    <th class="py-2 px-3">Thang Điểm JLPT</th>
+                    <th class="py-2 px-3">Chi Tiết Điểm Từng Phần</th>
                 </tr>
             </thead>
             <tbody>
@@ -564,7 +822,6 @@ function backToHome() {
     renderHistoryTable();
 }
 
-// Hàm hỗ trợ định dạng thời gian mm:ss
 function formatAudioTime(seconds) {
     if (isNaN(seconds) || seconds <= 0) return "00:00";
     const mins = Math.floor(seconds / 60);
@@ -572,38 +829,155 @@ function formatAudioTime(seconds) {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+function showSubmitConfirmModal() {
+    const currentKey = SECTION_KEYS[currentSectionIndex];
+    const stats = getSectionStats(currentKey);
+    const modal = document.getElementById('submit-confirm-modal');
+    const content = document.getElementById('submit-confirm-modal-content');
+
+    const isComplete = stats.answered === stats.total;
+    const hasUnanswered = stats.answered < stats.total;
+    const hasFlagged = stats.flagged > 0;
+    const unansweredCount = stats.total - stats.answered;
+
+    let warningBadges = '';
+
+    if (hasUnanswered) {
+        warningBadges += `
+            <div class="bg-red-950/70 border border-red-500/50 p-3 rounded-xl flex items-start gap-2.5 text-xs text-red-200">
+                <i class="fa-solid fa-triangle-exclamation text-red-400 text-base mt-0.5 flex-shrink-0"></i>
+                <div>
+                    <strong class="text-red-400 block font-bold text-xs">Còn ${unansweredCount} câu BỎ TRỐNG chưa làm!</strong>
+                    <span class="text-[11px] text-red-300">Bạn chưa chọn đáp án cho tất cả các câu hỏi trong phần này.</span>
+                </div>
+            </div>
+        `;
+    }
+
+    if (hasFlagged) {
+        warningBadges += `
+            <div class="bg-amber-950/70 border border-amber-500/50 p-3 rounded-xl flex items-start gap-2.5 text-xs text-amber-200">
+                <i class="fa-solid fa-bookmark text-amber-400 text-base mt-0.5 flex-shrink-0"></i>
+                <div>
+                    <strong class="text-amber-400 block font-bold text-xs">Đang ĐÁNH DẤU ${stats.flagged} câu nghi vấn!</strong>
+                    <span class="text-[11px] text-amber-300">Vẫn còn câu chưa chắc chắn bạn chưa quay lại kiểm tra.</span>
+                </div>
+            </div>
+        `;
+    }
+
+    if (isComplete && !hasFlagged) {
+        warningBadges += `
+            <div class="bg-emerald-950/70 border border-emerald-500/50 p-3 rounded-xl flex items-start gap-2.5 text-xs text-emerald-200">
+                <i class="fa-solid fa-circle-check text-emerald-400 text-base mt-0.5 flex-shrink-0"></i>
+                <div>
+                    <strong class="text-emerald-400 block font-bold text-xs">Đã hoàn thành 100%!</strong>
+                    <span class="text-[11px] text-emerald-300">Bạn đã điền đủ ${stats.total} câu và không còn câu đánh dấu.</span>
+                </div>
+            </div>
+        `;
+    }
+
+    content.innerHTML = `
+        <div class="text-center pb-3 border-b border-slate-700">
+            <span class="text-3xl">📋</span>
+            <h3 class="text-lg font-black text-amber-400 uppercase tracking-wider mt-1">XÁC NHẬN NỘP BÀI PHẦN THI</h3>
+            <p class="text-xs text-slate-400 mt-1">${currentExam ? currentExam.name : ''}</p>
+        </div>
+
+        <div class="space-y-2.5 pt-1">
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 flex justify-between items-center text-xs">
+                <span class="text-slate-300 font-bold">Tiến độ làm bài phần này:</span>
+                <span class="font-mono font-black text-amber-400 text-sm">${stats.answered} / ${stats.total} câu</span>
+            </div>
+
+            ${warningBadges}
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+            <button id="btn-modal-cancel-submit" class="py-2.5 px-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow">
+                <i class="fa-solid fa-arrow-left"></i> Quay lại kiểm tra
+            </button>
+            <button id="btn-modal-confirm-submit" class="py-2.5 px-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow">
+                <i class="fa-solid fa-check-double"></i> Xác nhận nộp bài
+            </button>
+        </div>
+    `;
+
+    document.getElementById('btn-modal-cancel-submit').addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    document.getElementById('btn-modal-confirm-submit').addEventListener('click', () => {
+        modal.classList.add('hidden');
+        gradeCurrentSection();
+    });
+
+    modal.classList.remove('hidden');
+}
+
 function initEventListeners() {
-    // Các sự kiện chuyển trang, nộp bài giữ nguyên...
     document.getElementById('nav-logo').addEventListener('click', backToHome);
+
+    // Lắng nghe sự kiện đổi Chế độ ở Trang chủ trước khi bấm Bắt đầu làm bài
+    const togglePractice = document.getElementById('toggle-practice-mode');
+    const practiceLabel = document.getElementById('practice-mode-label');
+    if (togglePractice) {
+        togglePractice.checked = isPracticeMode;
+        togglePractice.addEventListener('change', (e) => {
+            isPracticeMode = e.target.checked;
+            if (practiceLabel) {
+                practiceLabel.textContent = isPracticeMode 
+                    ? "Luyện tập (Báo đáp án ngay, không tính điểm & không lưu lịch sử)" 
+                    : "Thi thử (Bảo mật đáp án, tính điểm JLPT & lưu lịch sử)";
+            }
+        });
+    }
+
     document.getElementById('btn-home-nav').addEventListener('click', backToHome);
     document.getElementById('btn-back-to-home').addEventListener('click', backToHome);
 
-    // =================================================================
-    // XỬ LÝ AUDIO CHOUKAI & THANH THỜI GIAN (ẢN/HIỆN & TUA)
-    // =================================================================
+    const btnClearFlags = document.getElementById('btn-clear-flags');
+    if (btnClearFlags) {
+        btnClearFlags.addEventListener('click', clearAllFlagsForCurrentSection);
+    }
+
     const audioProgress = document.getElementById('audio-progress');
     const audioCurrentTime = document.getElementById('audio-current-time');
     const audioDuration = document.getElementById('audio-duration');
     const audioTimelineContainer = document.getElementById('audio-timeline-container');
     const btnToggleTimeline = document.getElementById('btn-toggle-audio-timeline');
     const timelineToggleIcon = document.getElementById('timeline-toggle-icon');
-    const timelineToggleText = document.getElementById('timeline-toggle-text');
 
-    // 1. Nút Nút Ẩn/Hiện Thanh Thời Gian
+    document.getElementById('btn-audio-rewind').addEventListener('click', () => {
+        if (audioPlayer) {
+            audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 5);
+        }
+    });
+
+    document.getElementById('btn-audio-forward').addEventListener('click', () => {
+        if (audioPlayer) {
+            audioPlayer.currentTime = Math.min(audioPlayer.duration || 0, audioPlayer.currentTime + 5);
+        }
+    });
+
+    document.getElementById('select-audio-speed').addEventListener('change', (e) => {
+        if (audioPlayer) {
+            audioPlayer.playbackRate = parseFloat(e.target.value);
+        }
+    });
+
     btnToggleTimeline.addEventListener('click', () => {
         const isHidden = audioTimelineContainer.classList.contains('hidden');
         if (isHidden) {
             audioTimelineContainer.classList.remove('hidden');
             timelineToggleIcon.className = "fa-solid fa-eye";
-            timelineToggleText.textContent = "Ẩn thanh thời gian";
         } else {
             audioTimelineContainer.classList.add('hidden');
             timelineToggleIcon.className = "fa-solid fa-eye-slash";
-            timelineToggleText.textContent = "Hiện thanh thời gian";
         }
     });
 
-    // 2. Nút Play/Pause Audio
     playAudioBtn.addEventListener('click', () => {
         const icon = document.getElementById('audio-icon');
         const status = document.getElementById('audio-status');
@@ -619,7 +993,6 @@ function initEventListeners() {
         }
     });
 
-    // 3. Nạp tổng thời lượng Audio khi file tải xong
     audioPlayer.addEventListener('loadedmetadata', () => {
         audioDuration.textContent = formatAudioTime(audioPlayer.duration);
         audioProgress.max = Math.floor(audioPlayer.duration);
@@ -627,7 +1000,6 @@ function initEventListeners() {
         audioCurrentTime.textContent = "00:00";
     });
 
-    // 4. Cập nhật thời gian thực khi Audio đang chạy
     audioPlayer.addEventListener('timeupdate', () => {
         if (!isNaN(audioPlayer.duration)) {
             audioProgress.value = Math.floor(audioPlayer.currentTime);
@@ -635,13 +1007,11 @@ function initEventListeners() {
         }
     });
 
-    // 5. Tua file nghe khi kéo thanh trượt (Range input)
     audioProgress.addEventListener('input', () => {
         audioPlayer.currentTime = audioProgress.value;
         audioCurrentTime.textContent = formatAudioTime(audioProgress.value);
     });
 
-    // 6. Khi đĩa nghe phát xong hết bài
     audioPlayer.addEventListener('ended', () => {
         const icon = document.getElementById('audio-icon');
         const status = document.getElementById('audio-status');
@@ -651,11 +1021,10 @@ function initEventListeners() {
         audioCurrentTime.textContent = "00:00";
     });
 
-    // Các sự kiện khác (Nộp bài, Zoom PDF, Clear history...)
-    document.getElementById('btn-submit-section').addEventListener('click', () => {
-        if (confirm("Bạn có chắc muốn nộp bài phần này?")) {
-            gradeCurrentSection();
-        }
+    document.getElementById('btn-submit-section').addEventListener('click', showSubmitConfirmModal);
+    
+    document.getElementById('btn-close-confirm-modal').addEventListener('click', () => {
+        document.getElementById('submit-confirm-modal').classList.add('hidden');
     });
 
     document.getElementById('btn-next-section').addEventListener('click', () => {
@@ -694,4 +1063,14 @@ function initEventListeners() {
             renderHistoryTable();
         }
     });
+}
+
+function stopChoukaiAudio() {
+    if (audioPlayer && !audioPlayer.paused) {
+        audioPlayer.pause();
+        const icon = document.getElementById('audio-icon');
+        const status = document.getElementById('audio-status');
+        if (icon) icon.className = "fa-solid fa-play";
+        if (status) status.textContent = "Đã dừng phát audio";
+    }
 }
