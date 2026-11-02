@@ -5,13 +5,14 @@ let currentExam = null;
 
 const SECTION_KEYS = ['moji_goi', 'bunpou', 'choukai'];
 let currentSectionIndex = 0; 
-let isPracticeMode = false; // Mặc định là chế độ Thi thử, có thể thay đổi dựa trên toggle trên trang chủ
+let isPracticeMode = false; // Mặc định Thi thử
 
 let pdfCache = {}; 
 let masterPdfDoc = null;
 let currentPdfUrl = '';
 let currentPdfPage = 1;
 let currentPdfScale = 1.2;
+let currentRenderTask = null;
 
 let sectionTimerInterval = null;
 let sectionTimeRemaining = 0;
@@ -31,6 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initApp() {
+    // Kiểm tra cả Android và iOS (iPhone, iPad, iPod)
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        document.body.classList.add('is-mobile');
+    }
     try {
         const res = await fetch('data/jlpt_data.json');
         appData = await res.json();
@@ -108,7 +113,6 @@ async function openExamWorkspace(examId) {
     currentExam = appData.exams.find(e => e.id === examId);
     if (!currentExam) return;
 
-    // Đọc trạng thái chế độ từ toggle trên trang chủ
     const togglePractice = document.getElementById('toggle-practice-mode');
     if (togglePractice) {
         isPracticeMode = togglePractice.checked;
@@ -125,15 +129,14 @@ async function openExamWorkspace(examId) {
     document.getElementById('active-exam-title').textContent = `${currentExam.name} (${currentExam.level})`;
     document.getElementById('sheet-exam-title').textContent = currentExam.id;
 
-    // Cập nhật Badge hiển thị Chế độ trong phòng thi
     const modeBadge = document.getElementById('active-mode-badge');
     if (modeBadge) {
         if (isPracticeMode) {
             modeBadge.className = "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30";
-            modeBadge.textContent = "Chế độ Luyện tập";
+            modeBadge.textContent = "Luyện tập";
         } else {
             modeBadge.className = "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30";
-            modeBadge.textContent = "Chế độ Thi thử";
+            modeBadge.textContent = "Thi thử";
         }
     }
 
@@ -155,11 +158,11 @@ async function openExamWorkspace(examId) {
 
 function loadCurrentSection() {
     stopSectionTimer();
-    const currentKey = SECTION_KEYS[currentSectionIndex];
+    stopChoukaiAudio();
 
+    const currentKey = SECTION_KEYS[currentSectionIndex];
     updateSectionIndicators();
 
-    // 1. CHỈ NẠP PDF 1 LẦN KHI BẮT ĐẦU/CHUYỂN PHẦN THI NÀY
     const sectionData = currentExam.sections[currentKey];
     if (sectionData && sectionData.pdf_url) {
         loadPDF(sectionData.pdf_url);
@@ -180,7 +183,7 @@ function updateSectionIndicators() {
         const ind = document.getElementById(`ind-${key}`);
         if (!ind) return;
 
-        ind.className = "section-indicator px-3 py-1 rounded-lg font-bold text-xs transition ";
+        ind.className = "section-indicator px-2 sm:px-3 py-1 rounded-lg font-bold text-xs transition ";
         if (idx === currentSectionIndex) {
             ind.className += "bg-amber-400 text-slate-950 shadow";
         } else if (currentSession.graded[key]) {
@@ -221,7 +224,7 @@ function updateTimerDisplay() {
         `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-async function loadPDF(pdfUrl) {
+async function loadPDF(pdfUrl, retryCount = 0) {
     if (!pdfUrl) return;
     
     if (currentPdfUrl === pdfUrl && masterPdfDoc) {
@@ -230,11 +233,20 @@ async function loadPDF(pdfUrl) {
     }
 
     const spinner = document.getElementById('pdf-spinner');
-    if (spinner) spinner.classList.remove('hidden');
+    const spinnerText = document.getElementById('pdf-spinner-text');
+    if (spinner) {
+        spinner.classList.remove('hidden');
+        if (spinnerText) spinnerText.textContent = "Đang tải đề thi PDF...";
+    }
 
     try {
         if (!pdfCache[pdfUrl]) {
-            pdfCache[pdfUrl] = await pdfjsLib.getDocument(pdfUrl).promise;
+            const loadingTask = pdfjsLib.getDocument({
+                url: pdfUrl,
+                cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                cMapPacked: true
+            });
+            pdfCache[pdfUrl] = await loadingTask.promise;
         }
 
         masterPdfDoc = pdfCache[pdfUrl];
@@ -244,8 +256,12 @@ async function loadPDF(pdfUrl) {
         renderPDFPage(1);
     } catch (err) {
         console.error("Lỗi khi nạp file PDF:", err);
-        if (spinner) {
-            spinner.innerHTML = `<span class="text-red-400 text-xs">Không thấy file: ${pdfUrl}</span>`;
+        if (retryCount < 1) {
+            setTimeout(() => loadPDF(pdfUrl, retryCount + 1), 800);
+            return;
+        }
+        if (spinner && spinnerText) {
+            spinnerText.innerHTML = `<span class="text-red-400">Không thấy file PDF (${pdfUrl})</span>`;
         }
     }
 }
@@ -255,18 +271,41 @@ async function renderPDFPage(pageNum) {
     currentPdfPage = pageNum;
 
     try {
+        if (currentRenderTask) {
+            currentRenderTask.cancel();
+            currentRenderTask = null;
+        }
+
         const page = await masterPdfDoc.getPage(pageNum);
         const canvas = document.getElementById('pdf-canvas');
+        const wrapper = document.getElementById('pdf-wrapper');
+        if (!canvas || !wrapper) return;
+
+        // Căn tỷ lệ vừa độ rộng khung hình trên mobile ở lần nạp đầu
+        if (window.innerWidth < 640 && (!currentPdfScale || currentPdfScale === 1.2)) {
+            const unscaledViewport = page.getViewport({ scale: 1.0 });
+            const wrapperWidth = wrapper.clientWidth - 16;
+            if (wrapperWidth > 0 && unscaledViewport.width > 0) {
+                currentPdfScale = wrapperWidth / unscaledViewport.width;
+            }
+        }
+
         const ctx = canvas.getContext('2d');
         const viewport = page.getViewport({ scale: currentPdfScale });
 
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
-        document.getElementById('pdf-page-display').textContent = `Trang ${pageNum}/${masterPdfDoc.numPages}`;
+        const pageDisplay = document.getElementById('pdf-page-display');
+        if (pageDisplay) {
+            pageDisplay.textContent = `Trang ${pageNum}/${masterPdfDoc.numPages}`;
+        }
 
-        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        currentRenderTask = page.render({ canvasContext: ctx, viewport: viewport });
+        await currentRenderTask.promise;
+        currentRenderTask = null;
     } catch (err) {
+        if (err && err.name === 'RenderingCancelledException') return;
         console.error("Lỗi khi vẽ trang PDF:", err);
     }
 }
@@ -284,8 +323,6 @@ function renderOMRSheet() {
         updateOMRStatsUI();
         return;
     }
-
-    // ❌ ĐÃ XÓA DÒNG loadPDF(sectionData.pdf_url) Ở ĐÂY ĐỂ KHÔNG BỊ KHỞI TẠO LẠI CANVAS KHI KHOANH ĐÁP ÁN
 
     const audioBox = document.getElementById('choukai-audio-box');
     if (currentKey === 'choukai') audioBox.classList.remove('hidden');
@@ -308,7 +345,6 @@ function renderOMRSheet() {
             const row = document.createElement('div');
             row.className = 'omr-row';
 
-            // 1. Số thứ tự câu hỏi (Click vào số câu mới render lại đúng trang PDF đó)
             const qNum = document.createElement('span');
             qNum.className = 'omr-qnum';
             qNum.textContent = `${q.id}`;
@@ -316,7 +352,6 @@ function renderOMRSheet() {
             qNum.addEventListener('click', () => renderPDFPage(q.page));
             row.appendChild(qNum);
 
-            // 2. Nút Đánh dấu (Flag/Bookmark)
             const isFlagged = !!(currentSession.flagged[currentKey] && currentSession.flagged[currentKey][qKey]);
             const flagBtn = document.createElement('button');
             flagBtn.className = `omr-flag-btn ${isFlagged ? 'flagged' : ''}`;
@@ -328,7 +363,6 @@ function renderOMRSheet() {
             });
             row.appendChild(flagBtn);
 
-            // 3. Khung chứa các ô tròn OMR
             const bubblesDiv = document.createElement('div');
             bubblesDiv.className = 'omr-bubbles';
 
@@ -408,10 +442,8 @@ function clearAllFlagsForCurrentSection(e) {
 }
 
 function selectAnswer(qKey, optionIdx, count, sectionKey, probIdx, qId) {
-    // 1. Đã nộp bài phần này thì không cho chọn
     if (currentSession.graded[sectionKey]) return;
 
-    // 2. Ở Chế độ Luyện tập, nếu câu này đã chọn đáp án rồi thì không cho chọn lại
     if (isPracticeMode && currentSession.answers[sectionKey][qKey] !== undefined) {
         return;
     }
@@ -469,9 +501,20 @@ function updateOMRStatsUI() {
     }
 }
 
+function stopChoukaiAudio() {
+    if (audioPlayer && !audioPlayer.paused) {
+        audioPlayer.pause();
+        const icon = document.getElementById('audio-icon');
+        const status = document.getElementById('audio-status');
+        if (icon) icon.className = "fa-solid fa-play";
+        if (status) status.textContent = "Đã dừng phát audio";
+    }
+}
+
 function gradeCurrentSection() {
     stopSectionTimer();
     stopChoukaiAudio();
+
     const currentKey = SECTION_KEYS[currentSectionIndex];
     const sectionData = currentExam.sections[currentKey];
 
@@ -506,7 +549,6 @@ function gradeCurrentSection() {
 
     const allGraded = SECTION_KEYS.every(k => currentSession.graded[k] === true);
     
-    // CHỈ LƯU LỊCH SỬ KHI LÀ CHẾ ĐỘ THI THỬ (isPracticeMode === false)
     if (allGraded && !isPracticeMode) {
         saveSessionToHistory();
     }
@@ -615,11 +657,9 @@ function showOverallScoreModal() {
     const content = document.getElementById('overall-modal-content');
 
     const jlptResult = calculateJLPTScore(currentSession.scores);
-
     let modalHTML = '';
 
     if (isPracticeMode) {
-        // GIAO DIỆN KẾT QUẢ CHO CHẾ ĐỘ LUYỆN TẬP (KHÔNG CHẤM ĐIỂM & KHÔNG LƯU LỊCH SỬ)
         let sectionsDetailHTML = jlptResult.sectionResults.map(sec => `
             <div class="flex justify-between items-center p-2.5 bg-slate-800 rounded-lg">
                 <div>
@@ -638,7 +678,7 @@ function showOverallScoreModal() {
                 <p class="text-xs text-slate-400 mt-1">${currentExam.name}</p>
                 
                 <div class="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-xl text-xs text-amber-300 my-3">
-                    <i class="fa-solid fa-circle-info mr-1"></i> Chế độ Luyện tập: Kết quả này không chấm điểm thi JLPT chính thức và <strong>không lưu vào lịch sử làm bài</strong>.
+                    <i class="fa-solid fa-circle-info mr-1"></i> Chế độ Luyện tập: Kết quả này không chấm điểm thi JLPT chuẩn và <strong>không lưu vào lịch sử làm bài</strong>.
                 </div>
             </div>
 
@@ -652,7 +692,6 @@ function showOverallScoreModal() {
             </button>
         `;
     } else {
-        // GIAO DIỆN CHẤM ĐIỂM CHÍNH THỨC CHO CHẾ ĐỘ THI THỬ
         const passBadgeHTML = jlptResult.isPassed 
             ? `<div class="result-badge-pass py-2 px-4 rounded-xl text-center font-black text-lg tracking-wide uppercase my-2">🎉 BẠN ĐÃ ĐẠT (合格)</div>`
             : `<div class="result-badge-fail py-2 px-4 rounded-xl text-center font-black text-lg tracking-wide uppercase my-2">⚠️ CHƯA ĐẠT (不合格)</div>`;
@@ -766,7 +805,7 @@ function renderHistoryTable() {
     let rowsHTML = history.map(item => {
         const maxPts = item.maxPossibleScore || 180;
         const totalPts = item.totalScore !== undefined ? item.totalScore : (item.jlptScore !== undefined ? item.jlptScore : 0);
-        const passText = item.isPassed ? 'Đạt/合格' : 'Chưa đạt/不合格';
+        const passText = item.isPassed ? 'Đạt (合格)' : 'Chưa đạt (不合格)';
         const passClass = item.isPassed ? 'text-emerald-400' : 'text-red-400';
 
         let detailStr = '';
@@ -817,6 +856,7 @@ function renderHistoryTable() {
 
 function backToHome() {
     stopSectionTimer();
+    stopChoukaiAudio();
     document.getElementById('exam-view').classList.add('hidden');
     document.getElementById('home-view').classList.remove('hidden');
     renderHistoryTable();
@@ -916,10 +956,47 @@ function showSubmitConfirmModal() {
     modal.classList.remove('hidden');
 }
 
+function setupPdfDragToScroll() {
+    const wrapper = document.getElementById('pdf-wrapper');
+    if (!wrapper) return;
+
+    let isDown = false;
+    let startX, startY, scrollLeft, scrollTop;
+
+    wrapper.addEventListener('mousedown', (e) => {
+        isDown = true;
+        wrapper.classList.add('is-dragging');
+        startX = e.pageX - wrapper.offsetLeft;
+        startY = e.pageY - wrapper.offsetTop;
+        scrollLeft = wrapper.scrollLeft;
+        scrollTop = wrapper.scrollTop;
+    });
+
+    wrapper.addEventListener('mouseleave', () => {
+        isDown = false;
+        wrapper.classList.remove('is-dragging');
+    });
+
+    wrapper.addEventListener('mouseup', () => {
+        isDown = false;
+        wrapper.classList.remove('is-dragging');
+    });
+
+    wrapper.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - wrapper.offsetLeft;
+        const y = e.pageY - wrapper.offsetTop;
+        const walkX = (x - startX) * 1.5;
+        const walkY = (y - startY) * 1.5;
+        wrapper.scrollLeft = scrollLeft - walkX;
+        wrapper.scrollTop = scrollTop - walkY;
+    });
+}
+
 function initEventListeners() {
     document.getElementById('nav-logo').addEventListener('click', backToHome);
 
-    // Lắng nghe sự kiện đổi Chế độ ở Trang chủ trước khi bấm Bắt đầu làm bài
     const togglePractice = document.getElementById('toggle-practice-mode');
     const practiceLabel = document.getElementById('practice-mode-label');
     if (togglePractice) {
@@ -1009,7 +1086,7 @@ function initEventListeners() {
 
     audioProgress.addEventListener('input', () => {
         audioPlayer.currentTime = audioProgress.value;
-        audioCurrentTime.textContent = formatAudioTime(audioProgress.value);
+        audioCurrentTime.textContent = formatAudioTime(audioPlayer.value);
     });
 
     audioPlayer.addEventListener('ended', () => {
@@ -1063,14 +1140,6 @@ function initEventListeners() {
             renderHistoryTable();
         }
     });
-}
 
-function stopChoukaiAudio() {
-    if (audioPlayer && !audioPlayer.paused) {
-        audioPlayer.pause();
-        const icon = document.getElementById('audio-icon');
-        const status = document.getElementById('audio-status');
-        if (icon) icon.className = "fa-solid fa-play";
-        if (status) status.textContent = "Đã dừng phát audio";
-    }
+    setupPdfDragToScroll();
 }

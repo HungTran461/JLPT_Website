@@ -1,8 +1,18 @@
 /* ==========================================================================
-   JLPT Renshuu - Responsive Stylesheet (Optimized for Mobile & Practice Mode)
+   JLPT Renshuu - Responsive & Centered Layout Stylesheet
    ========================================================================== */
 
-/* 1. Custom Smooth Scrollbars */
+/* Anti-Overflow Body Guard (Chống văng lề ngang điện thoại) */
+html, body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -19,21 +29,45 @@
     background: rgba(251, 191, 36, 0.8);
 }
 
-/* 2. Touch & Interaction Optimizations for Mobile */
 button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
 
-/* 3. OMR Sheet Paper Styling */
+/* PDF Wrapper: Chỉ cuộn và kéo rê BÊN TRONG khung */
+#pdf-wrapper {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    user-select: none;
+    cursor: grab;
+}
+
+#pdf-wrapper.is-dragging {
+    cursor: grabbing !important;
+}
+
+#pdf-canvas {
+    display: block;
+    margin: 0 auto;
+    max-width: none !important;
+    height: auto;
+}
+
+/* OMR Sheet Paper */
 .omr-sheet-paper {
     background-color: #f8fafc;
     background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
     background-size: 16px 16px;
     color: #0f172a;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-/* 4. OMR Problem Block */
 .omr-problem-block {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -54,12 +88,11 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     letter-spacing: 0.03em;
 }
 
-/* 5. OMR Row Layout */
 .omr-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
     padding: 6px 0;
     border-bottom: 1px solid #f1f5f9;
 }
@@ -67,7 +100,6 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     border-bottom: none;
 }
 
-/* Question Number Badge */
 .omr-qnum {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-weight: 800;
@@ -92,7 +124,6 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     border-color: #bae6fd;
 }
 
-/* Flag / Bookmark Button */
 .omr-flag-btn {
     background: transparent;
     border: none;
@@ -118,16 +149,15 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     border: 1px solid #fde68a;
 }
 
-/* Bubbles Container */
 .omr-bubbles {
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Chuyển từ flex-end sang space-between để dàn đều đáp án */
+    justify-content: space-between;
     flex: 1;
-    padding-left: 10px; /* Tạo khoảng cách vừa phải với nút đánh dấu */
+    padding-left: 8px;
+    min-width: 0;
 }
 
-/* Individual OMR Bubble Button */
 .omr-bubble {
     width: 34px;
     height: 34px;
@@ -164,7 +194,6 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
 }
 
-/* Graded / Feedback States */
 .omr-bubble.correct {
     background-color: #10b981 !important;
     border-color: #047857 !important;
@@ -205,48 +234,20 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     100% { transform: scale(1); }
 }
 
-/* 6. Media Queries Optimization for Mobile & Tablet Screens */
+/* Tối ưu hóa tuyệt đối cho Mobile (< 640px) */
 @media (max-width: 640px) {
-    nav .max-w-7xl {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
-    #pdf-wrapper {
-        min-height: 280px !important;
-        max-height: 48vh !important;
-        padding: 4px;
-    }
-
-    #pdf-canvas {
-        max-width: 100% !important;
-        height: auto !important;
-    }
-
     .omr-sheet-paper {
-        padding: 12px !important;
-        border-width: 1px !important;
-        border-radius: 16px !important;
+        padding: 10px !important;
+        border-radius: 14px !important;
     }
 
     .omr-problem-block {
-        padding: 8px 10px;
+        padding: 6px 8px;
     }
 
     .omr-row {
-        gap: 6px;
+        gap: 4px;
         padding: 4px 0;
-    }
-
-    .omr-bubbles {
-        gap: 5px;
-    }
-
-    .omr-bubble {
-        width: 32px;
-        height: 32px;
-        font-size: 12px;
-        border-width: 1.8px;
     }
 
     .omr-qnum {
@@ -256,31 +257,69 @@ button, select, input, .omr-bubble, .omr-flag-btn, .omr-qnum {
     }
 
     .omr-flag-btn {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
         font-size: 12px;
     }
 
-    #overall-modal > div,
-    #submit-confirm-modal > div {
-        max-width: 96% !important;
-        padding: 16px !important;
-        border-radius: 16px !important;
+    .omr-bubbles {
+        padding-left: 4px;
+        gap: 4px;
     }
-}
 
-@media (max-width: 380px) {
+    /* Kích thước vừa vặn không đẩy văng lề phải */
     .omr-bubble {
         width: 28px;
         height: 28px;
         font-size: 11px;
+        border-width: 1.5px;
     }
-    .omr-bubbles {
-        gap: 4px;
+
+    #pdf-wrapper {
+        min-height: 300px !important;
+        max-height: 48vh !important;
+        padding: 4px;
     }
-    .omr-qnum {
-        min-width: 22px;
-        height: 22px;
-        font-size: 10px;
-    }
+}
+
+/* ==========================================================================
+   CHỈ ÁP DỤNG FIX LỖI KHI TRUY CẬP BẰNG THIẾT BỊ ANDROID
+   ========================================================================== */
+body.is-android #exam-view, 
+body.is-android #exam-view .grid, 
+body.is-android #exam-view section, 
+body.is-android #pdf-wrapper,
+body.is-android .omr-sheet-paper {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Khung cuộn kéo rê PDF riêng cho Android */
+body.is-android #pdf-wrapper {
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+}
+
+/* Thu nhỏ nút OMR để không bị tràn lề màn hình Android */
+body.is-android .omr-bubbles {
+    gap: 2px !important;
+    padding-left: 2px !important;
+}
+
+body.is-android .omr-bubble {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 10px !important;
+}
+
+body.is-android .omr-qnum, 
+body.is-android .omr-flag-btn {
+    width: 22px !important;
+    min-width: 22px !important;
+    height: 22px !important;
+    font-size: 10px !important;
 }
