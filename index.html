@@ -61,6 +61,20 @@
             </div>
         </section>
 
+        <section id="events-section" class="bg-slate-800 p-3.5 sm:p-4 rounded-2xl border border-indigo-500/30 shadow-xl space-y-2.5">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-sparkles text-amber-400"></i> Sự Kiện & Thông Báo
+                </h3>
+                <span class="text-[10px] sm:text-[11px] text-indigo-300 font-semibold bg-indigo-950/80 border border-indigo-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <i class="fa-solid fa-fire text-amber-400"></i> Tin nổi bật
+                </span>
+            </div>
+            
+            <!-- Nơi render sự kiện tự động từ jlpt_data.json -->
+            <div id="events-container" class="w-full"></div>
+        </section>
+
         <!-- Chọn Đề Thi JLPT & Chế Độ -->
         <section class="space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
@@ -275,6 +289,16 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="jlpt.js"></script>
+    <!-- MODAL XEM ẢNH PHÓNG TO (Bấm ra ngoài hoặc bấm nút X để đóng) -->
+    <div id="image-preview-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-2 sm:p-4 cursor-pointer" onclick="closeImageModal()">
+        <div class="relative max-w-5xl max-h-[90vh] flex items-center justify-center" onclick="event.stopPropagation()">
+            <button type="button" onclick="closeImageModal()" class="absolute -top-10 right-0 text-slate-300 hover:text-white text-xl bg-slate-800/80 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center border border-slate-600 transition shadow-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="preview-modal-img" src="" alt="Phóng to hình ảnh" class="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl border border-slate-700/80">
+        </div>
+    </div>
 </body>
 </html>

@@ -5,6 +5,25 @@
     "registration_status": "Sắp mở đăng ký (Dự kiến tháng 8)",
     "location": "Hà Nội, Đà Nẵng, TP. Hồ Chí Minh, Huế"
   },
+  "events": [
+    {
+      "id": 1,
+      "badge": "Sự kiện Cosplay",
+      "badge_color": "bg-purple-500/20 text-purple-300 border-purple-500/40",
+      "title": "Event Cosplay Fuyu Akari tại GO! Mỹ Tho",
+      "desc": "Lần đầu tiên, YumeFesta mang lễ hội mùa đông FUYU AKARI đến GO! Mỹ Tho, hứa hẹn trở thành điểm hẹn đầy màu sắc dành cho cộng đồng yêu thích cosplay, nơi mọi người thỏa sức thể hiện cá tính, giao lưu và kết nối cùng những người chung đam mê!",
+      "details": [
+        "⏰ Thời gian: 14h00 – 17h30 | Chủ Nhật, 29/11/2026",
+        "📍 Địa điểm: GO! Mỹ Tho, 545 Lê Văn Phẩm, Đồng Tháp."
+      ],
+      "images": [
+        "image/EventCosplayGOMT.jpg",
+        "image/EventCosplayGOMT1.jpg"
+      ],
+      "date": "29/11/2026",
+      "icon": "fa-masks-theater"
+    }
+  ],
   "exams": [
     {
       "id": "2024-7",

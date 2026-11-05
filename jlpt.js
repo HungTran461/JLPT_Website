@@ -32,16 +32,26 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initApp() {
-    // Kiểm tra cả Android và iOS (iPhone, iPad, iPod)
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         document.body.classList.add('is-mobile');
     }
+    
     try {
-        const res = await fetch('data/jlpt_data.json');
+        let res;
+        // Thử nạp từ thư mục data/ trước, nếu không có thì nạp từ thư mục gốc
+        try {
+            res = await fetch('data/jlpt_data.json');
+            if (!res.ok) throw new Error("File không nằm trong thư mục data/");
+        } catch (e) {
+            res = await fetch('jlpt_data.json');
+        }
+
         appData = await res.json();
 
         setupExamInfo();
         startCountdown();
+
+        renderEventsBanner();
 
         renderHomeExamsGrid();
         renderHistoryTable();
@@ -1143,3 +1153,284 @@ function initEventListeners() {
 
     setupPdfDragToScroll();
 }
+
+// ==========================================================================
+// 2. BIẾN TOÀN CỤC BỔ SUNG CHO SLIDER SỰ KIỆN
+// ==========================================================================
+let currentEventIdx = 0;
+let eventAutoSlideTimer = null;
+
+// ==========================================================================
+// 3. HÀM TẠO THẺ HTML CHO TỪNG SỰ KIỆN
+// ==========================================================================
+// 1. Thu gọn chiều cao thẻ sự kiện bên trong (md:h-48 ~ 192px)
+function createEventCardHTML(evt, evtIdx) {
+    const item = document.createElement('div');
+    item.className = "bg-gradient-to-b from-slate-800/90 to-slate-900/90 border border-slate-700/80 rounded-xl flex flex-col md:flex-row overflow-hidden shadow-lg w-full h-auto md:h-52";
+
+    const imgList = Array.isArray(evt.images) 
+        ? evt.images 
+        : (evt.image ? [evt.image] : []);
+
+    let imageHTML = '';
+
+    if (imgList.length === 1) {
+        imageHTML = `
+            <div class="w-full md:w-5/12 h-40 sm:h-48 md:h-full bg-slate-950/90 flex items-center justify-center overflow-hidden relative border-b md:border-b-0 md:border-r border-slate-700/60 p-2 cursor-pointer flex-shrink-0 group/img" onclick="event.stopPropagation(); openImageModal('${imgList[0]}')">
+                <img src="${imgList[0]}" alt="${evt.title}" class="max-w-full max-h-full object-contain transition duration-300 group-hover/img:scale-105">
+            </div>
+        `;
+    } else if (imgList.length > 1) {
+        const carouselId = `event-img-carousel-${evt.id || evtIdx}`;
+        
+        const indicators = imgList.map((_, idx) => `
+            <button type="button" data-bs-target="#${carouselId}" data-bs-slide-to="${idx}" class="${idx === 0 ? 'active' : ''}" aria-current="${idx === 0 ? 'true' : 'false'}"></button>
+        `).join('');
+
+        const slides = imgList.map((imgUrl, idx) => `
+            <div class="carousel-item h-full ${idx === 0 ? 'active' : ''}">
+                <div class="w-full h-full flex items-center justify-center bg-slate-950/90 p-2 cursor-pointer group/img" onclick="event.stopPropagation(); openImageModal('${imgUrl}')">
+                    <img src="${imgUrl}" class="max-w-full max-h-full object-contain transition duration-300 group-hover/img:scale-105" alt="Slide ${idx + 1}">
+                </div>
+            </div>
+        `).join('');
+
+        imageHTML = `
+            <div id="${carouselId}" class="carousel slide w-full md:w-5/12 h-40 sm:h-48 md:h-full border-b md:border-b-0 md:border-r border-slate-700/60 bg-slate-950/90 flex-shrink-0" data-bs-ride="carousel" data-bs-interval="4000">
+                <div class="carousel-indicators mb-1">
+                    ${indicators}
+                </div>
+                <div class="carousel-inner h-full">
+                    ${slides}
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#${carouselId}" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#${carouselId}" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                </button>
+            </div>
+        `;
+    }
+
+    let detailsHTML = '';
+    if (Array.isArray(evt.details) && evt.details.length > 0) {
+        const detailItems = evt.details.map(item => `
+            <li class="flex items-start gap-1 text-[11px] sm:text-xs text-slate-200">
+                <span class="leading-tight">${item}</span>
+            </li>
+        `).join('');
+
+        detailsHTML = `
+            <div class="mt-2 bg-slate-950/70 border border-slate-700/70 p-2.5 rounded-lg">
+                <ul class="space-y-1">
+                    ${detailItems}
+                </ul>
+            </div>
+        `;
+    }
+
+    item.innerHTML = `
+        ${imageHTML}
+        <div class="p-3.5 sm:p-4 flex flex-col justify-between flex-1 min-w-0 space-y-2">
+            <div>
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="px-2 py-0.5 text-[10px] sm:text-[11px] font-extrabold rounded border ${evt.badge_color || 'bg-slate-800 text-slate-300'}">
+                        ${evt.badge}
+                    </span>
+                    <span class="text-[11px] sm:text-xs text-slate-400 font-mono flex items-center gap-1">
+                        <i class="fa-regular fa-clock"></i> ${evt.date}
+                    </span>
+                </div>
+
+                <h4 class="text-sm sm:text-base font-extrabold text-white leading-snug">
+                    ${evt.title}
+                </h4>
+                <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed mt-1">
+                    ${evt.desc}
+                </p>
+            </div>
+
+            ${detailsHTML}
+        </div>
+    `;
+
+    return item;
+}
+
+// 2. Bỏ min-h-[380px] và áp dụng layout ôm sát khung
+function renderEventsBanner() {
+    const container = document.getElementById('events-container');
+    if (!container || !appData || !Array.isArray(appData.events) || appData.events.length === 0) return;
+
+    container.innerHTML = '';
+
+    if (appData.events.length === 1) {
+        container.className = "w-full";
+        container.appendChild(createEventCardHTML(appData.events[0], 0));
+    } else {
+        container.className = "w-full relative";
+
+        const totalEvents = appData.events.length;
+        const eventsWrapper = document.createElement('div');
+        eventsWrapper.id = "main-events-wrapper";
+        eventsWrapper.className = "relative w-full"; // Đã bỏ min-h-[380px] thừa
+
+        appData.events.forEach((evt, idx) => {
+            const slideItem = document.createElement('div');
+            slideItem.className = `event-slide-item transition-all duration-300 ${idx === 0 ? 'block opacity-100' : 'hidden opacity-0'}`;
+            slideItem.setAttribute('data-event-idx', idx);
+            slideItem.appendChild(createEventCardHTML(evt, idx));
+            eventsWrapper.appendChild(slideItem);
+        });
+
+        const navBar = document.createElement('div');
+        navBar.className = "flex items-center justify-between pt-2 px-0.5";
+
+        const indicatorsHTML = appData.events.map((_, idx) => `
+            <button type="button" onclick="switchEventSlide(${idx})" class="event-indicator-btn h-1 rounded-full transition-all duration-300 ${idx === 0 ? 'bg-amber-400 w-6' : 'bg-slate-600 w-3.5'}" data-idx="${idx}"></button>
+        `).join('');
+
+        navBar.innerHTML = `
+            <div class="flex items-center gap-1">
+                ${indicatorsHTML}
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button type="button" onclick="prevEventSlide()" class="px-2.5 py-0.5 bg-slate-900/90 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-md text-[11px] font-bold transition flex items-center gap-1 shadow">
+                    <i class="fa-solid fa-chevron-left text-[9px]"></i> Trước
+                </button>
+                <button type="button" onclick="nextEventSlide()" class="px-2.5 py-0.5 bg-slate-900/90 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-md text-[11px] font-bold transition flex items-center gap-1 shadow">
+                    Sau <i class="fa-solid fa-chevron-right text-[9px]"></i>
+                </button>
+            </div>
+        `;
+
+        container.appendChild(eventsWrapper);
+        container.appendChild(navBar);
+
+        startEventAutoSlide(totalEvents);
+    }
+
+    if (typeof bootstrap !== 'undefined') {
+        const carousels = container.querySelectorAll('.carousel');
+        carousels.forEach(c => new bootstrap.Carousel(c, { interval: 4000, ride: 'carousel' }));
+    }
+}
+
+// ==========================================================================
+// 5. CÁC HÀM ĐIỀU HƯỚNG CHUYỂN SLIDE SỰ KIỆN
+// ==========================================================================
+function switchEventSlide(targetIdx) {
+    const slides = document.querySelectorAll('.event-slide-item');
+    const indicators = document.querySelectorAll('.event-indicator-btn');
+    if (!slides.length) return;
+
+    currentEventIdx = (targetIdx + slides.length) % slides.length;
+
+    slides.forEach((slide, idx) => {
+        if (idx === currentEventIdx) {
+            slide.classList.remove('hidden');
+            setTimeout(() => slide.classList.add('opacity-100'), 10);
+        } else {
+            slide.classList.remove('opacity-100');
+            slide.classList.add('hidden');
+        }
+    });
+
+    indicators.forEach((btn, idx) => {
+        if (idx === currentEventIdx) {
+            btn.className = "event-indicator-btn h-1.5 rounded-full transition-all duration-300 bg-amber-400 w-8";
+        } else {
+            btn.className = "event-indicator-btn h-1.5 rounded-full transition-all duration-300 bg-slate-600 w-5";
+        }
+    });
+}
+
+function prevEventSlide() {
+    switchEventSlide(currentEventIdx - 1);
+    resetEventAutoSlide();
+}
+
+function nextEventSlide() {
+    switchEventSlide(currentEventIdx + 1);
+    resetEventAutoSlide();
+}
+
+function startEventAutoSlide(totalEvents) {
+    if (eventAutoSlideTimer) clearInterval(eventAutoSlideTimer);
+    if (totalEvents <= 1) return;
+    eventAutoSlideTimer = setInterval(() => {
+        nextEventSlide();
+    }, 7000);
+}
+
+function resetEventAutoSlide() {
+    const slides = document.querySelectorAll('.event-slide-item');
+    if (slides.length > 1) {
+        startEventAutoSlide(slides.length);
+    }
+}
+
+// ==========================================================================
+// BỔ SUNG: HÀM PHÓNG TO VÀ ĐÓNG ẢNH (MODAL LIGHTBOX)
+// ==========================================================================
+function openImageModal(imgUrl) {
+    let modal = document.getElementById('image-modal');
+    
+    // Tự động khởi tạo khung Modal nếu chưa có trong HTML
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'image-modal';
+        modal.className = 'fixed inset-0 z-[99999] hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300 opacity-0';
+        modal.innerHTML = `
+            <div class="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+                <!-- Nút đóng Modal -->
+                <button type="button" onclick="closeImageModal()" class="absolute -top-11 right-0 md:-top-4 md:-right-4 z-20 w-9 h-9 bg-slate-800 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition border border-slate-600 shadow-xl cursor-pointer">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+                <!-- Ảnh phóng to -->
+                <img id="modal-img-src" src="" alt="Ảnh phóng to" class="max-w-full max-h-[85vh] object-contain rounded-xl border border-slate-700/80 shadow-2xl select-none">
+            </div>
+        `;
+        
+        // Bấm ra ngoài ảnh để đóng
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target.classList.contains('flex')) {
+                closeImageModal();
+            }
+        });
+
+        document.body.appendChild(modal);
+    }
+
+    const modalImg = document.getElementById('modal-img-src');
+    if (modalImg) {
+        modalImg.src = imgUrl;
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.add('opacity-100');
+    }, 10);
+
+    // Ngăn cuộn trang web khi đang mở ảnh
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeImageModal() {
+    const modal = document.getElementById('image-modal');
+    if (!modal) return;
+
+    modal.classList.remove('opacity-100');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }, 300);
+}
+
+// Bấm phím ESC để đóng ảnh
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeImageModal();
+    }
+});
