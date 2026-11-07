@@ -291,7 +291,7 @@ async function renderPDFPage(pageNum) {
         const wrapper = document.getElementById('pdf-wrapper');
         if (!canvas || !wrapper) return;
 
-        // Căn tỷ lệ vừa độ rộng khung hình trên mobile ở lần nạp đầu
+        // Tự động căn tỷ lệ khung nhìn trên di động
         if (window.innerWidth < 640 && (!currentPdfScale || currentPdfScale === 1.2)) {
             const unscaledViewport = page.getViewport({ scale: 1.0 });
             const wrapperWidth = wrapper.clientWidth - 16;
@@ -303,15 +303,33 @@ async function renderPDFPage(pageNum) {
         const ctx = canvas.getContext('2d');
         const viewport = page.getViewport({ scale: currentPdfScale });
 
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        // KHẮC PHỤC TRIỆT ĐỂ: Lấy mật độ điểm ảnh thực tế (DPR). 
+        // Ép dpr tối thiểu = 2 trên điện thoại để nét căng từng chữ Kanji/Furigana
+        const dpr = Math.max(window.devicePixelRatio || 1, 2);
+
+        // Kích thước điểm ảnh thực tế của Canvas (nhân với DPR)
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+
+        // Kích thước hiển thị theo chuẩn CSS
+        canvas.style.width = Math.floor(viewport.width) + 'px';
+        canvas.style.height = Math.floor(viewport.height) + 'px';
+
+        // Biến đổi Ma trận (Transform) để PDF.js vẽ độ phân giải gấp DPR lần mà không làm lệch khung
+        const transform = [dpr, 0, 0, dpr, 0, 0];
 
         const pageDisplay = document.getElementById('pdf-page-display');
         if (pageDisplay) {
             pageDisplay.textContent = `Trang ${pageNum}/${masterPdfDoc.numPages}`;
         }
 
-        currentRenderTask = page.render({ canvasContext: ctx, viewport: viewport });
+        // Render PDF với ma trận DPR cực sắc nét
+        currentRenderTask = page.render({
+            canvasContext: ctx,
+            viewport: viewport,
+            transform: transform
+        });
+
         await currentRenderTask.promise;
         currentRenderTask = null;
     } catch (err) {

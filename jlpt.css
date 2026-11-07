@@ -324,6 +324,24 @@ body.is-android .omr-flag-btn {
     font-size: 10px !important;
 }
 
+/* Áp dụng cho thẻ <img> hoặc <canvas> hiển thị đề thi */
+#pdf-canvas, 
+.exam-paper-img, 
+#image-container img {
+    /* Ép trình duyệt dựng nét chữ, chống làm mịn mờ */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    
+    /* Bật tăng tốc phần cứng GPU để hình ảnh sắc nét hơn trên Mobile */
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    
+    /* Đảm bảo tỉ lệ khung hình chuẩn */
+    max-width: 100%;
+    height: auto;
+}
+
 /* ==========================================================================
    MINIMAL BOOTSTRAP CAROUSEL CSS (Không gây xung đột viền với Tailwind)
    ========================================================================== */
